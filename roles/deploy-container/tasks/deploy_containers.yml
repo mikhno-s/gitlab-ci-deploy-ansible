@@ -1,0 +1,39 @@
+- name: Create project directory
+  file:
+    path: "{{ project_path }}"
+    state: "directory"
+    owner: "{{ deploy_user }}"
+
+- name: Copy compose file
+  template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ project_path }}/docker-compose.yml"
+    owner: "{{ deploy_user }}"
+
+- name: Check syntax docker-compose.yml
+  shell: "docker-compose config -q"
+  args:
+    chdir: "{{ project_path }}"
+
+- name: Check registrator is running
+  shell: "docker ps | grep registrator"
+  ignore_errors: yes
+  register: registrator_ok
+
+- name: Run registrator service
+  command: "docker run -d --net=host --restart=always --volume=/var/run/docker.sock:/tmp/docker.sock gliderlabs/registrator:latest -ip {{ ansible_eth0.ipv4.address }} consul://localhost:8500"
+  when: registrator_ok|failed
+
+- name: Docker login to gitlab container registry
+  command: "docker login -u {{ registry_username }} -p {{ registry_password }} {{ registry_addr }}"
+
+- name: Pull containers
+  command: "docker-compose pull"
+  args:
+    chdir: "{{ project_path }}"
+
+- name: Start containers
+  command: "docker-compose up -d"
+  args:
+    chdir: "{{ project_path }}"
+

@@ -1,0 +1,33 @@
+deploy_user: deploy_user
+
+service_name: sceleton
+
+project_path: "/opt/{{ service_name }}"
+
+target_env: unknown_env
+
+slack_hook_url: "https://hooks.slack.com/services/**********************"
+
+gelf_addr: "udp://logstash01:12201"
+
+consul_addr: consul-server
+consul_port: 8500
+consul_url: "{{ consul_addr }}:{{ consul_port }}"
+consul_datacenter: dc1
+service_tag_in_consul: uat
+
+registry_addr: hub.docker.com
+registry_username: registry_username  
+registry_password: registry_password
+
+services:
+  service1:
+    name: "service_name"
+    registry_addr: "gitlab.com:4567/service_group/service_name"
+    port: 
+      - 80
+      - 9229
+    version: latest
+    environment_vars: 
+      NODE_ENV: testing
+      NODE_FLAGS: --debug=0.0.0.0:9229

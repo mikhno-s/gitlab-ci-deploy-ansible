@@ -1,0 +1,9 @@
+---
+- hosts: Testing
+  become: yes
+  vars:
+    services:
+      service1:
+        version: latest
+  roles:
+    - { role: deploy-container }

@@ -1,0 +1,84 @@
+image: siriusred/opstools
+
+stages:
+  - prepare
+  - deploy
+  - notify
+
+variables:
+  NOTIFICATION_URL: "https://hooks.slack.com/***************"
+
+.deploy: &deploy_definition
+  stage: deploy
+  script:
+    - echo "$SSH_KEY" > asbl.key
+    - chmod 0600 asbl.key
+    - ansible-playbook --key-file asbl.key deploy_to_${stage}.yml
+  allow_failure: false
+
+tagging_version:
+  stage: prepare
+  image: siriusred/opstools
+  script:
+    - git config --global user.email "deploy@deploy.com" && git config --global user.name "deploy"
+    - git remote set-url origin https://deploy:${deploy_pass}@gitlab.com/${CI_PROJECT_PATH}.git
+    - sed -i.bak 's/version:.*$/version:\ '$version'/' deploy_to_uat.yml
+    - sed -i.bak 's/version:.*$/version:\ '$version'/' deploy_to_stage.yml
+    - sed -i.bak 's/version:.*$/version:\ '$version'/' deploy_to_production.yml
+    - git commit -am "Branch was tagged ${version} for deploy this version"
+    - (git tag -l | grep $version  && git tag -d ${version} && git push origin :refs/tags/${version}) || echo "Tag is non-exist"
+    - git tag -f ${version}
+    - git push origin --tags
+  only:
+    - triggers
+  except:
+    - tags
+
+deploy:uat:
+  variables:
+    SSH_KEY: "$SSH_KEY_PRIV_DUSS"
+    stage: "uat"
+  tags:
+    - docker
+    - duss
+  only:
+    - develop
+  <<: *deploy_definition
+
+deploy:stage:
+  variables:
+    SSH_KEY: "$SSH_KEY_PRIV_STAGE"
+    stage: "stage"
+  when: manual
+  allow_failure: true
+  tags:
+    - stage-docker
+  only:
+    - /^release\//
+    - /^hotfix\//
+    - /^v\d+\.\d+\.\d+$/
+  <<: *deploy_definition
+
+deploy:production:
+  variables:
+    SSH_KEY: "$SSH_KEY_PRIV_AMS"
+    stage: "production"
+  when: manual
+  allow_failure: true
+  tags:
+    - ams-docker
+  only:
+    - /^release\//
+    - /^hotfix\//
+    - /^v\d+\.\d+\.\d+$/
+  <<: *deploy_definition
+
+Notify:failed:
+  stage: notify
+  script:
+     - curl -X POST --data-urlencode "payload={\"text\":\"${CI_PROJECT_NAME} ${CI_COMMIT_TAG} failed\", \"icon_emoji\":\":red_circle:\"}" ${NOTIFICATION_URL}
+  tags:
+     - shell
+  when: on_failure
+  only:
+    - tags

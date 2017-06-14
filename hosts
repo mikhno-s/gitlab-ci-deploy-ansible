@@ -1,0 +1,8 @@
+[Production]
+docker-host-prod1 
+
+[Stage]
+docker-host-stage1
+
+[Testing]
+docker-host-uat1

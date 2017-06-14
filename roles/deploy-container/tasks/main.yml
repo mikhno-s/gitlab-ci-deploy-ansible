@@ -1,0 +1,25 @@
+---
+- name: Check dependencies
+  shell: "which {{ item }}"
+  register: dependecies
+  with_items:
+    - "git"
+    - "pip"
+    - "docker"
+    - "docker-compose"
+  ignore_errors: yes
+
+- name: Install dependencies
+  include: install_dependencies.yml
+  when: dependecies|failed
+
+- name: Include deploy playbook
+  include: deploy_containers.yml
+
+- name: notify to slack
+  uri:
+    method: POST
+    url: "{{ slack_hook_url }}"
+    HEADER_Content-Type: "application/json"
+    body_format: json
+    body: '{"text": "*[{{ target_env }}]* {% for key, value in services.iteritems() %}{{value.name}}-{{value.version}} :arrow_right: {{ ansible_nodename }} :white_check_mark: \n{% endfor %}"}'

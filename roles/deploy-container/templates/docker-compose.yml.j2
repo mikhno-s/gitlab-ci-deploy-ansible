@@ -1,0 +1,24 @@
+version: "2"
+services:
+{% for key, value in services.iteritems() %}
+  {{ key }}:
+    image: {{value.registry_addr}}:{{value.version}}
+    environment:
+      {% if value.environment_vars is defined %}{% for key, value in value.environment_vars.iteritems() -%}
+      - {{key}}={{value}}
+      {% endfor %}{% endif -%}
+      - SERVICE_TAGS={{ service_tag_in_consul }}
+      - SERVICE_CHECK_TCP=true
+      - SERVICE_CHECK_INTERVAL=5s
+    ports:
+{% for port in value.port %}
+      - '{{ port }}' 
+{% endfor %}
+    restart: always
+{% if gelf_addr!="disable" %}
+    logging:
+      driver: gelf
+      options:
+        gelf-address: "{{ gelf_addr }}"
+{% endif %}
+{% endfor %}

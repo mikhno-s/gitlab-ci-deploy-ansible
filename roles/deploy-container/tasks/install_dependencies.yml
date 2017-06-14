@@ -1,0 +1,52 @@
+- name: Ensure docker repository key is up-to-date
+  apt_key:
+    url: 'https://download.docker.com/linux/ubuntu/gpg'
+    id: "9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+    state: present
+
+- name: Read lsb_release
+  shell: lsb_release -cs
+  register: lsb_release
+  changed_when: false
+  always_run: yes
+
+- name: Add docker repo for Ubuntu 
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{lsb_release.stdout}} stable"
+    state: 'present'
+
+- name: Install dependencies packages
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+  with_items:
+    - "git"
+    - "apt-transport-https"
+    - "ca-certificates"
+    - "software-properties-common"
+    - "curl"
+    - "python-pip"
+    - "acl"
+    - "docker-ce"
+
+- name: Set user permissions for docker
+  user:
+    name: '{{ deploy_user }}'
+    groups: 'docker'
+    append: yes
+
+- name: adds 'docker' to start on boot
+  service:
+    name: docker
+    enabled: yes
+
+- name: "Install {{ item }}"
+  pip:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - "docker-compose"
+    - "docker"
+    - "pyyaml"
